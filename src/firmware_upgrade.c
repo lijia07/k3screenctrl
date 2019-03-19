@@ -14,7 +14,7 @@
 #include "file_util.h"
 #include "gpio.h"
 #include "requests.h"
-
+#include "firmware_upgrade.h"
 #define UPGRADE_STAGE_IDLE 0
 #define UPGRADE_STAGE_VERSION_CHECK 1
 #define UPGRADE_STAGE_ERASE 2

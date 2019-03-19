@@ -32,6 +32,8 @@ static void config_show_help() {
         "and internet connection info\n"
         "\t-i, --basic-info-script <PATH>\tUse this script to gather "
         "basic info\n"
+		"\t-e, --weather-script <PATH>\tUse this script to gather "
+		"weather info\n"
         "\nThe defaults are /lib/k3screenctrl/{host,wifi,port,wan,basic}.sh "
         "with an interval of 2 seconds\n"
         "\t-u, --upgrade <PATH>\tUpgrade MCU with this iHex file. KILL ALL "
@@ -47,6 +49,7 @@ void config_parse_cmdline(int argc, char *argv[]) {
         {"test", no_argument, NULL, 't'},
         {"update-interval", required_argument, NULL, 'd'},
         {"screen-timeout", required_argument, NULL, 'm'},
+	{"weather-script", required_argument, NULL, 'e'},
         {"host-script", required_argument, NULL, 's'},
         {"wifi-script", required_argument, NULL, 'w'},
         {"port-script", required_argument, NULL, 'p'},
@@ -54,7 +57,7 @@ void config_parse_cmdline(int argc, char *argv[]) {
         {"basic-info-script", required_argument, NULL, 'i'},
         {"upgrade", required_argument, NULL, 'u'},
         {0, 0, 0, 0}};
-    static const char *short_opts = "hfrtd:m:s:w:p:n:i:u:";
+    static const char *short_opts = "hfrtd:m:s:e:w:p:n:i:u:";
 
     int opt_index;
     signed char result;
@@ -79,6 +82,10 @@ void config_parse_cmdline(int argc, char *argv[]) {
         case 'm':
             g_config.screen_timeout = atoi(optarg);
             break;
+		case 'e':
+	  	  free(g_config.weather_script);
+			g_config.weather_script = strdup(optarg);
+			break;
         case 's':
             free(g_config.host_script);
             g_config.host_script = strdup(optarg);
@@ -113,6 +120,7 @@ void config_load_defaults() {
     g_config.test_mode = DEFAULT_TEST_MODE;
     g_config.update_interval = DEFAULT_UPDATE_INTERVAL;
     g_config.screen_timeout = DEFAULT_SCREEN_TIMEOUT;
+    g_config.weather_script = strdup(DEFAULT_WEATHER_SCRIPT);
     g_config.host_script = strdup(DEFAULT_HOST_SCRIPT);
     g_config.wifi_script = strdup(DEFAULT_WIFI_SCRIPT);
     g_config.port_script = strdup(DEFAULT_PORT_SCRIPT);
@@ -123,6 +131,7 @@ void config_load_defaults() {
 
 void config_free() {
     free(g_config.host_script);
+    free(g_config.weather_script);
     free(g_config.wifi_script);
     free(g_config.port_script);
     free(g_config.wan_script);

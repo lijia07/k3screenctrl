@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "mcu_proto.h"
-
+#include "requests.h"
 void print_port_info(PORT_INFO *info) {
     printf("PORT_INFO at %p:\n"
            "  LAN1 = %hhu\n"
@@ -62,6 +62,19 @@ void print_host_info(struct _host_info_single *info, int len) {
     }
 }
 
+void print_weather_info(WEATHER_INFO *info) {
+	        printf("WEATHER_INFO at %p:\n"
+	               "  city = %s\n"
+                      "  temp = %s\n"
+                     "  date = %s\n"
+                    "  time = %s\n"
+                   "  weather = %hhu\n"
+                  "  week = %hhu\n"
+                "  error = %hhu\n",
+                info, info->city, info->temp,
+               info->date, info->time, info->weather, info->week, info->error);
+}
+
 static void print_buf(const unsigned char *buf, int len) {
     printf("RCVD %d bytes\n", len);
 
@@ -69,4 +82,8 @@ static void print_buf(const unsigned char *buf, int len) {
         printf("0x%hhx ", buf[i]);
     }
     printf("\n");
+}
+void print_mcu_version(){
+    int ver=request_mcu_version();
+    printf("MCU_VERSION:%x\n",ver);
 }
