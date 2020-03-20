@@ -176,7 +176,7 @@ typedef struct _config {
      * Turn off screen after this time (seconds). 0 to disable.
      */
     int screen_timeout;
-#define DEFAULT_SCREEN_TIMEOUT 30
+#define DEFAULT_SCREEN_TIMEOUT 10
 } CONFIG;
 
 void config_parse_cmdline(int argc, char *argv[]);
