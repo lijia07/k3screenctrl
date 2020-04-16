@@ -8,7 +8,7 @@
 #include "debug.h"
 #include "mcu_proto.h"
 #include "scripts.h"
-
+#include "firmware_upgrade.h"
 enum _token_type {
     TOKEN_STRING_NEW,       /* Duplicate a new string and write its pointer to
                                *storage */
@@ -313,4 +313,5 @@ void print_all_info() {
     print_port_info(&g_port_info);
     print_weather_info(&g_weather_info);
     print_host_info(g_host_info_array, g_host_info_elements);
+    print_mcu_version();
 }

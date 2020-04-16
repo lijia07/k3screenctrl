@@ -53,7 +53,7 @@ void page_send_initial_data() {
     send_page_data(PAGE_WAN);
     send_page_data(PAGE_WIFI);
     send_page_data(PAGE_HOSTS);
-	send_page_data(PAGE_WEATHER);
+    send_page_data(PAGE_WEATHER);
     request_switch_page(PAGE_WAN);
 }
 

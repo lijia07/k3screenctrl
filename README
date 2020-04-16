@@ -1,0 +1,2 @@
+firmware upgrade:
+k3screenctrl -u pathtoFW
