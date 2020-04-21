@@ -70,5 +70,9 @@ else
 fi
 
 echo $CONNECTED
+echo $IPV4_ADDR
 echo $UPLOAD_BPS
 echo $DOWNLOAD_BPS
+echo 0
+echo $mode
+
