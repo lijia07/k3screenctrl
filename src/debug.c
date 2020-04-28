@@ -2,6 +2,10 @@
 
 #include "mcu_proto.h"
 #include "requests.h"
+#if defined(BCMARM)
+#include <shared.h>
+#endif
+
 void print_port_info(PORT_INFO *info) {
     printf("PORT_INFO at %p:\n"
            "  LAN1 = %hhu\n"
@@ -88,6 +92,10 @@ static void print_buf(const unsigned char *buf, int len) {
     printf("\n");
 }
 void print_mcu_version(){
+#if defined(BCMARM)
+	printf("MCU_VERSION:%s\n",nvram_get("mcu_version"));
+#else
     int ver=request_mcu_version();
     printf("MCU_VERSION:%x\n",ver);
+#endif
 }

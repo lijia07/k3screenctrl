@@ -15,6 +15,10 @@
 #include "gpio.h"
 #include "requests.h"
 #include "firmware_upgrade.h"
+#if defined(BCMARM)
+#include <shared.h>
+#endif
+
 #define UPGRADE_STAGE_IDLE 0
 #define UPGRADE_STAGE_VERSION_CHECK 1
 #define UPGRADE_STAGE_ERASE 2
@@ -130,12 +134,21 @@ static int bl_request_flash(const char *fwpath) {
 
 static int fwupgrade_reset_normal() {
     printf("INFO: Resetting MCU to normal mode...\n");
-    if (gpio_set_value(SCREEN_BOOT_MODE_GPIO, BOOT_MODE_APP) == FAILURE ||
+#if defined(BCMARM)
+    if (set_gpio(SCREEN_BOOT_MODE_GPIO, BOOT_MODE_APP) == FAILURE ||
+        set_gpio(SCREEN_RESET_GPIO, 0) == FAILURE ||
+        set_gpio(SCREEN_RESET_GPIO, 1) == FAILURE) {
+        fprintf(stderr, "Could not reset screen to normal mode\n");
+        return FAILURE;
+    }
+#else
+        if (gpio_set_value(SCREEN_BOOT_MODE_GPIO, boot_gpio) == FAILURE ||
         gpio_set_value(SCREEN_RESET_GPIO, 0) == FAILURE ||
         gpio_set_value(SCREEN_RESET_GPIO, 1) == FAILURE) {
         fprintf(stderr, "Could not reset screen to normal mode\n");
         return FAILURE;
     }
+#endif
 }
 
 static int fwupgrade_set_stage(int stage, int timeout, int delay) {

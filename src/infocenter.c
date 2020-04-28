@@ -24,7 +24,7 @@ struct _token_store {
         char *str_overwrite_storage;
         unsigned int *uint_storage;
         unsigned char *byte_storage;
-    };
+    } ts;
     enum _token_type type;
     int storage_len;
 };
@@ -32,37 +32,37 @@ struct _token_store {
 /* Use the value rather than its address for x */
 #define TOKEN_STRING_OVERWRITE_STORE(x)                                        \
     {                                                                          \
-        .str_overwrite_storage = (x), .type = TOKEN_STRING_OVERWRITE,          \
+        .ts.str_overwrite_storage = (x), .type = TOKEN_STRING_OVERWRITE,          \
         .storage_len = sizeof((x)),                                            \
     }
 #define TOKEN_STRING_NEW_STORE(x)                                              \
     {                                                                          \
-        .str_new_storage = &(x), .type = TOKEN_STRING_NEW,                     \
+        .ts.str_new_storage = &(x), .type = TOKEN_STRING_NEW,                     \
         .storage_len = sizeof((x)),                                            \
     }
 #define TOKEN_UINT_STORE(x)                                                    \
-    { .uint_storage = &(x), .type = TOKEN_UINT, .storage_len = sizeof((x)), }
+    { .ts.uint_storage = &(x), .type = TOKEN_UINT, .storage_len = sizeof((x)), }
 #define TOKEN_BYTE_STORE(x)                                                    \
-    { .byte_storage = &(x), .type = TOKEN_BYTE, .storage_len = sizeof((x)), }
+    { .ts.byte_storage = &(x), .type = TOKEN_BYTE, .storage_len = sizeof((x)), }
 
 /* Will free(token) if needed */
 static void token_store(const struct _token_store *store_info, char *token) {
     switch (store_info->type) {
     case TOKEN_STRING_NEW:
-        *store_info->str_new_storage = token;
+        *store_info->ts.str_new_storage = token;
         break;
     case TOKEN_STRING_OVERWRITE:
-        strncpy(store_info->str_overwrite_storage, token,
+        strncpy(store_info->ts.str_overwrite_storage, token,
                 store_info->storage_len - 1);
-        store_info->str_overwrite_storage[store_info->storage_len - 1] = 0;
+        store_info->ts.str_overwrite_storage[store_info->storage_len - 1] = 0;
         free(token);
         break;
     case TOKEN_UINT:
-        *store_info->uint_storage = atoi(token);
+        *store_info->ts.uint_storage = atoi(token);
         free(token);
         break;
     case TOKEN_BYTE:
-        *store_info->byte_storage = atoi(token);
+        *store_info->ts.byte_storage = atoi(token);
         free(token);
         break;
     }
@@ -226,11 +226,11 @@ static int update_host_info() {
         TOKEN_UINT_STORE(g_host_info_array[0].logo),
     };
     for (unsigned int i = 0; i < g_host_info_elements; i++) {
-        host_info_tokens[0].str_overwrite_storage =
+        host_info_tokens[0].ts.str_overwrite_storage =
             g_host_info_array[i].hostname;
-        host_info_tokens[1].uint_storage = &g_host_info_array[i].download_Bps;
-        host_info_tokens[2].uint_storage = &g_host_info_array[i].upload_Bps;
-        host_info_tokens[3].uint_storage = &g_host_info_array[i].logo;
+        host_info_tokens[1].ts.uint_storage = &g_host_info_array[i].download_Bps;
+        host_info_tokens[2].ts.uint_storage = &g_host_info_array[i].upload_Bps;
+        host_info_tokens[3].ts.uint_storage = &g_host_info_array[i].logo;
 
         curr_pos = tokenize_and_store(curr_pos, '\n', host_info_tokens,
                                       sizeof(host_info_tokens) /
