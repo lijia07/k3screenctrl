@@ -10,6 +10,7 @@ typedef struct _config {
      * MODEL
      * HW version
      * FW version
+     * FW version
      * MAC address
      *
      * Example:
@@ -20,7 +21,7 @@ typedef struct _config {
      * 02:00:00:00:00:00
      */
     char *basic_info_script;
-#define DEFAULT_BASIC_INFO_SCRIPT "/lib/k3screenctrl/basic.sh"
+#define DEFAULT_BASIC_INFO_SCRIPT "/tmp/k3screenctrl/basic.sh"
 
     /**
      * This script will be called in order to get ports info.
@@ -40,13 +41,14 @@ typedef struct _config {
      * 1
      */
     char *port_script;
-#define DEFAULT_PORT_SCRIPT "/lib/k3screenctrl/port.sh"
+#define DEFAULT_PORT_SCRIPT "/tmp/k3screenctrl/port.sh"
 
     /**
      * This script will be called in order to get WAN speed info.
      *
      * Expected output format (one line for each field):
      * Internet connected? (0 or 1)
+     * IPV4 address
      * Upload speed (integer, in Bytes per sec)
      * Download speed (integer, in Bytes per sec)
      * flag? (ure_disable/0 or 1)
@@ -61,7 +63,7 @@ typedef struct _config {
      * 1
      */
     char *wan_script;
-#define DEFAULT_WAN_SCRIPT "/lib/k3screenctrl/wan.sh"
+#define DEFAULT_WAN_SCRIPT "/tmp/k3screenctrl/wan.sh"
 
     /**
      * This script will be called in order to get WiFi info.
@@ -97,7 +99,7 @@ typedef struct _config {
      * 0
      */
     char *wifi_script;
-#define DEFAULT_WIFI_SCRIPT "/lib/k3screenctrl/wifi.sh"
+#define DEFAULT_WIFI_SCRIPT "/tmp/k3screenctrl/wifi.sh"
 
     /**
      * This script will be called in order to get host info.
@@ -105,8 +107,8 @@ typedef struct _config {
      * Expected output format (one line for each field):
      * Number of hosts
      * Host1 name
-     * Host1 upload speed
      * Host1 download speed
+     * Host1 upload speed
      * Host1 brand (0~29)
      * <repetition of Host1 fields>
      *
@@ -122,7 +124,7 @@ typedef struct _config {
      * 0
      */
     char *host_script;
-#define DEFAULT_HOST_SCRIPT "/lib/k3screenctrl/host.sh"
+#define DEFAULT_HOST_SCRIPT "/tmp/k3screenctrl/host.sh"
 
     /**
      * This script will be called in order to get weather info.
@@ -146,7 +148,7 @@ typedef struct _config {
      * 0
      */
     char *weather_script;
-#define DEFAULT_WEATHER_SCRIPT "/lib/k3screenctrl/weather.sh"
+#define DEFAULT_WEATHER_SCRIPT "/tmp/k3screenctrl/weather.sh"
 
     /**
      * Shall we skip GPIO setup (do not reset the microcontroller)?
@@ -175,7 +177,7 @@ typedef struct _config {
      * pages require only 1 each.
      */
     int update_interval;
-#define DEFAULT_UPDATE_INTERVAL 2
+#define DEFAULT_UPDATE_INTERVAL 1
 
     /**
      * Turn off screen after this time (seconds). 0 to disable.
@@ -188,10 +190,10 @@ typedef struct _config {
      * the program will only work as an updater and normal data updating
      * routines are disabled. The program exits immediately after upgrading
      * finishes.
-     * 
+     *
      * This parameter takes a path to ".hex" file(iHex) from stock ROM. If not
      * specified, it defaults to an empty string.
-     * 
+     *
      * Remember to kill all running instances of k3screenctrl before attempting
      * any upgrade!
      */

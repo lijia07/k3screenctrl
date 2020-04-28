@@ -34,7 +34,7 @@ static void config_show_help() {
         "basic info\n"
         "\t-e, --weather-script <PATH>\tUse this script to gather "
         "weather info\n"
-        "\nThe defaults are /lib/k3screenctrl/{weather,host,wifi,port,wan,basic}.sh "
+        "\nThe defaults are /tmp/k3screenctrl/{weather,host,wifi,port,wan,basic}.sh "
         "with an interval of 2 seconds\n"
         "\t-u, --upgrade <PATH>\tUpgrade MCU with this iHex file. KILL ALL "
         "RUNNING INSTANCES OF THIS PROGRAM BEFORE ATTEMPTING!\n");
