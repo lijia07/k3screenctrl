@@ -86,7 +86,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = k3screenctrl$(EXEEXT)
+bin_PROGRAMS = k3screenctrl$(EXEEXT) k3screenbg$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -99,6 +99,9 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
+am_k3screenbg_OBJECTS = k3screenbg.$(OBJEXT)
+k3screenbg_OBJECTS = $(am_k3screenbg_OBJECTS)
+k3screenbg_LDADD = $(LDADD)
 am_k3screenctrl_OBJECTS = config.$(OBJEXT) crcccitt.$(OBJEXT) \
 	debug.$(OBJEXT) file_util.$(OBJEXT) frame.$(OBJEXT) \
 	gpio.$(OBJEXT) handlers.$(OBJEXT) infocenter.$(OBJEXT) \
@@ -136,8 +139,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(k3screenctrl_SOURCES)
-DIST_SOURCES = $(k3screenctrl_SOURCES)
+SOURCES = $(k3screenbg_SOURCES) $(k3screenctrl_SOURCES)
+DIST_SOURCES = $(k3screenbg_SOURCES) $(k3screenctrl_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -252,7 +255,28 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-k3screenctrl_SOURCES = checksum.h common.h config.c config.h crcccitt.c debug.c debug.h file_util.c file_util.h frame.c frame.h gpio.c gpio.h handlers.c handlers.h infocenter.c infocenter.h logging.c logging.h main.c mcu_proto.h mem_util.c mem_util.h pages.c pages.h requests.c requests.h scripts.c scripts.h serial_port.c serial_port.h signals.c signals.h firmware_upgrade.c firmware_upgrade.h
+k3screenctrl_SOURCES = checksum.h common.h config.c config.h crcccitt.c debug.c debug.h \
+					file_util.c file_util.h frame.c frame.h gpio.c gpio.h handlers.c handlers.h \
+					infocenter.c infocenter.h logging.c logging.h main.c mcu_proto.h \
+					mem_util.c mem_util.h pages.c pages.h requests.c requests.h scripts.c scripts.h \
+					serial_port.c serial_port.h signals.c signals.h firmware_upgrade.c firmware_upgrade.h
+
+k3screenbg_SOURCES = k3screenbg.c
+AM_CFLAGS = -std=gnu99 -D_GNU_SOURCE -I$(SRCBASE)/include \
+	-I$(KERNEL_HEADER_DIR) -I$(TOP)/nvram${BCMEX} -I$(TOP)/shared \
+	-I$(SRCBASE)/shared/bcmwifi/include \
+	-I$(TOP)/curl-7.21.7/include -I$(TOP)/json-c \
+	-I$(TOP)/openssl/include -I$(TOP)/networkmap \
+	-I$(TOP)/bwdpi_source/asus_include -I$(TOP)/httpd \
+	-I$(TOP)/bwdpi_source/src/tdts_udb_sample \
+	-I$(TOP)/bwdpi_source/src/tdts_udb_sample/linux \
+	-I$(TOP)/bwdpi_source/include
+AM_LDFLAGS = -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared \
+	-L$(TOP)/curl-7.21.7/lib/.libs -lcurl -L$(TOP)/json-c/.libs \
+	-ljson-c -L$(TOP)/openssl -lcrypto -lssl -ldl \
+	-L$(TOP)/bwdpi_source/asus -lbwdpi \
+	-L$(TOP)/bwdpi_source/asus_sql -lbwdpi_sql \
+	-L$(TOP)/sqlite/.libs -lsqlite3 -lpthread
 all: all-am
 
 .SUFFIXES:
@@ -329,6 +353,10 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
+k3screenbg$(EXEEXT): $(k3screenbg_OBJECTS) $(k3screenbg_DEPENDENCIES) $(EXTRA_k3screenbg_DEPENDENCIES) 
+	@rm -f k3screenbg$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(k3screenbg_OBJECTS) $(k3screenbg_LDADD) $(LIBS)
+
 k3screenctrl$(EXEEXT): $(k3screenctrl_OBJECTS) $(k3screenctrl_DEPENDENCIES) $(EXTRA_k3screenctrl_DEPENDENCIES) 
 	@rm -f k3screenctrl$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(k3screenctrl_OBJECTS) $(k3screenctrl_LDADD) $(LIBS)
@@ -348,6 +376,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gpio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handlers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/infocenter.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/k3screenbg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/logging.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mem_util.Po@am__quote@
