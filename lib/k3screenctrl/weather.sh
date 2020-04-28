@@ -1,98 +1,38 @@
 #!/bin/sh
+get_json_value()
+{
+  local json=$1
+  local key=$2
+  if [[ -z "$3" ]]; then
+    local num=1
+  else
+    local num=$3
+  fi
+  local value=$(echo "${json}" | awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'${key}'"/){print $(i+1)}}}' | tr -d '"' | sed -n ${num}p)
+  echo ${value}
+}
 
-. /lib/network/config.sh
-. /lib/functions.sh
+week=`date "+%w"`
+data=`date "+%Y-%m-%d"`
+time=`date "+%H:%M"`
+ctimes=`date "+%s"`
+wtimes=`cat /tmp/k3screenctrl/wtimes`
+exptimes=`expr $wtimes + 120`
 
-update_weather=0
-
-update_time=$(uci get k3screenctrl.@general[0].update_time 2>/dev/null)
-
-if [ -z "$update_time" ]; then
-	update_time=3600
+if [ $ctimes -gt $exptimes ]
+then 
+  curl "http://api.openweathermap.org/data/2.5/weather?zip=94305,us&units=metric&APPID=YOURKEY" > /tmp/k3screenctrl/weatherfile
+  echo $ctimes > /tmp/k3screenctrl/wtimes
 fi
 
-DATE=$(date "+%Y-%m-%d %H:%M")
-DATE_DATE=$(echo $DATE | awk '{print $1}')
-DATE_TIME=$(echo $DATE | awk '{print $2}')
-DATE_WEEK=$(date "+%u")
-if [ "$DATE_WEEK" == "7" ]; then
-	DATE_WEEK=0
-fi
-
-if [ "$update_time" -eq 0 ]; then
-	echo "OFF"$city
-	echo $TEMPERATURE
-	echo $DATE_DATE
-	echo $DATE_TIME
-	echo $TYPE
-	echo $DATE_WEEK
-	echo 0
-	exit
-fi
-
-cur_time=`date +%s`
-last_time=`cat /tmp/k3screenctrl/weather_time 2>/dev/null`
-if [ -z "$last_time" ]; then
-	update_weather=1
-	echo $cur_time > /tmp/k3screenctrl/weather_time
-else
-	time_tmp=`expr $cur_time - $last_time`
-	if [ $time_tmp -ge $update_time ]; then
-		update_weather=1
-		echo $cur_time > /tmp/k3screenctrl/weather_time
-	fi
-fi
-
-city_checkip=0
-city_checkip=$(uci get k3screenctrl.@general[0].city_checkip 2>/dev/null)
-
-if [ "$city_checkip" = "1" ]; then
-	city_tmp=`cat /tmp/k3screenctrl/weather_city 2>/dev/null`
-	if [ -z "$city_tmp" ]; then
-		wanip=`curl -s http://pv.sohu.com/cityjson | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}"`
-		city_json=`curl -s http://ip.taobao.com/service/getIpInfo.php?ip=$wanip`
-		ip_city=`echo $city_json | jsonfilter -e '@.data.city'`
-		ip_county=`echo $city_json | jsonfilter -e '@.data.county'`
-		if [ "$ip_county" != "XX" ]; then
-			city=`echo $ip_county`
-		else
-			city=`echo $ip_city`
-		fi
-		echo $city > /tmp/k3screenctrl/weather_city
-		uci set k3screenctrl.@general[0].city=$city
-		uci commit k3screenctrl
-	else
-		city=`echo $city_tmp`
-	fi
-else
-	city=$(uci get k3screenctrl.@general[0].city 2>/dev/null)
-fi
-#echo $city
-
-weather_info=$(cat /tmp/k3screenctrl/k3_weather.json 2>/dev/null)
-if [ -z "$weather_info" ]; then
-	update_weather=1
-fi
-
-key=$(uci get k3screenctrl.@general[0].key 2>/dev/null)
-if [ -z "$key" ]; then
-	update_weather=0
-fi
-
-if [ "$update_weather" = "1" ]; then
-	rm -rf /tmp/k3screenctrl/k3_weather.json
-	wget "http://api.seniverse.com/v3/weather/now.json?key=$key&location=$city&language=zh-Hans&unit=c" -O /tmp/k3screenctrl/k3_weather.json 2>/dev/null
-fi
-
-weather_json=$(cat /tmp/k3screenctrl/k3_weather.json 2>/dev/null)
-TEMPERATURE=`echo $weather_json | jsonfilter -e '@.results[0].now.temperature'`
-TYPE=`echo $weather_json | jsonfilter -e '@.results[0].now.code'`
-
-#output weather data
+weapi=`cat /tmp/k3screenctrl/weatherfile`
+city=`get_json_value "$weapi" name`
+temp=`get_json_value "$weapi" temp|awk '{printf("%.0f\n",$1)}'`
+code=`get_json_value "$weapi" icon`
 echo $city
-echo $TEMPERATURE
-echo $DATE_DATE
-echo $DATE_TIME
-echo $TYPE
-echo $DATE_WEEK
+echo $temp
+echo $data
+echo $time
+echo $code
+echo $week
 echo 0

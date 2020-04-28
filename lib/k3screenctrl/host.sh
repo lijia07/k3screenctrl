@@ -1,12 +1,10 @@
 #!/bin/bash
 # Copyright (C) 2017 XiaoShan https://www.mivm.cn
 
-online_list=($(grep -v "0x0" /proc/net/arp | grep "br-lan" |awk '{print $1}'))
-mac_online_list=($(grep -v "0x0" /proc/net/arp | grep "br-lan" |awk '{print $4}'))
+online_list=($(grep -v "0x0" /proc/net/arp | grep "br0" |awk '{print $1}'))
+mac_online_list=($(grep -v "0x0" /proc/net/arp | grep "br0" |awk '{print $4}'))
 
-arp_ip=($(grep "br-lan" /proc/net/arp | awk '{print $1}'))
-
-uci show k3screenctrl > /tmp/k3screenctrl/k3_custom
+arp_ip=($(grep "br0" /proc/net/arp | awk '{print $1}'))
 
 if [ -z "$(iptables --list | grep UPSP)" -a -z "$(iptables --list | grep DWSP)" ]; then
 	iptables -N UPSP
@@ -34,17 +32,9 @@ fi
 
 for ((i=0;i<${#online_list[@]};i++))
 do
-	hostname[i]=$(grep ${online_list[i]} -w /tmp/dhcp.leases | awk '{print $4}')
+	hostname[i]=$(grep ${online_list[i]} -w /var/lib/misc/dnsmasq.leases | awk '{print $4}')
 	hostmac=${mac_online_list[i]//:/} && hostmac=${hostmac:0:6}
-	logo[i]=$(grep -i $hostmac /lib/k3screenctrl/oui/oui.txt | awk '{print $1}')
-
-	#for k3screenctrl/k3_custom
-	tmp_mac=$(echo ${mac_online_list[i]} | tr 'a-z' 'A-Z')
-	tmp_uci=$(cat /tmp/k3screenctrl/k3_custom | grep $tmp_mac | awk -F'=' '{print $1}' | awk -F'.' '{print$1"."$2}')
-	if [ -n "$tmp_uci" ];then
-		hostname[i]=$(uci get $tmp_uci.name)
-		logo[i]=$(uci get $tmp_uci.icon)
-	fi
+	logo[i]=$(grep -i ${hostmac} /lib/k3screenctrl/oui/oui.txt | awk '{print $1}')
 
 	last_speed_time=$(cut -d$'\n' -f,1 /tmp/k3screenctrl/lan_speed/${online_list[i]})
 	last_speed_up=$(cut -d$'\n' -f,2 /tmp/k3screenctrl/lan_speed/${online_list[i]})
@@ -73,7 +63,11 @@ do
 	echo $now_speed_dw >> /tmp/k3screenctrl/lan_speed/${online_list[i]}
 
 	if [ -z "${hostname[i]}" -o "${hostname[i]}" = "*" ]; then
-		hostname[i]="Unknown"
+		if [ -r "/usr/networkmap/networkmap.oui.js" ]; then
+			hostname[i]=$(grep -i ${hostmac} /usr/networkmap/networkmap.oui.js | awk -F":" '{print $2}' | sed 's/[\",]//g')
+		else
+			hostname[i]="Unknown"
+		fi
 	fi
 	if [ -z "${logo[i]}" ]; then
 		logo[i]="0"
