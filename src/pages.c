@@ -39,7 +39,7 @@ static void send_page_data(PAGE page) {
                                    g_host_page * HOSTS_PER_PAGE);
         break;
     case PAGE_WEATHER:
-	    request_update_weather(&g_weather_info);
+		request_update_weather(&g_weather_info);
 		break;
     default:
         syslog(LOG_WARNING, "unknown page requested: %d\n", page);

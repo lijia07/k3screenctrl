@@ -57,7 +57,7 @@ typedef enum _event {
     EVENT_UPGRADE,
     EVENT_REBOOT,
     EVENT_RESET,
-    EVENT_WIFI_ON_2, /* Not known */
+    EVENT_WIFI_ON_2 /* Not known */
 } EVENT;
 
 typedef enum _response_type {
@@ -158,6 +158,7 @@ typedef struct _basic_info {
     char sw_version[24];
     char mac_addr_base[18];
 } BASIC_INFO;
+
 /* REQUEST_UPDATE_WEATHER */
 typedef struct _weather_info {
 	char city[32]; // city
