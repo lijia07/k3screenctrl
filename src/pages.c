@@ -112,9 +112,11 @@ void page_switch_next() {
 void page_switch_prev() {
     if (g_current_page != PAGE_HOSTS) {
         if (g_current_page > PAGE_MIN) {
-            g_current_page--;
-            page_refresh();
-            request_switch_page(g_current_page);
+			if (g_current_page > (PAGE_UPGRADE_INFO + 1) || strlen(g_basic_info.sw_version)) {
+				g_current_page--;
+				page_refresh();
+				request_switch_page(g_current_page);
+			}
         }
     } else {
         /* In PAGE_HOSTS */

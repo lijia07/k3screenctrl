@@ -66,17 +66,17 @@ void handle_key_press(const unsigned char *payload, int len) {
         request_notify_event(EVENT_SLEEP);
         g_is_screen_on = 0;
 		printf("KEY_MIDDLE_LONG\n");
-        return;
+        break;
     case KEY_LEFT_LONG:
-		page_switch_to(PAGE_WIFI);
+		page_switch_to(PAGE_BASIC_INFO);
         printf("KEY_LEFT_LONG\n");
+        break;
     case KEY_RIGHT_LONG:
 		page_switch_to(PAGE_HOSTS);
         printf("KEY_RIGHT_LONG\n");
-        return;
+        break;
     default:
         syslog(LOG_WARNING, "unknown key code: %hhx\n", payload[0]);
-        return;
     }
 }
 

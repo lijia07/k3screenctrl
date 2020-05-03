@@ -13,7 +13,7 @@
 #include "../networkmap/networkmap.h"
 #include "config.h"
 
-#define max(a, b) ((a) > (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define NMP_CACHE_FILE "/tmp/nmp_cache.js"
 #define REFRESH_INTERVAL_MIN 60 * 60 * 1
 
@@ -583,9 +583,10 @@ int output_basic_sh()
 	char *EXTEND_NO = nvram_get("extendno");
 	FILE *fp = NULL;
 	char HW_VERSION[21];
-	char FW_VERSION[64];
+	char FW_VERSION[64], NEW_FW_VERSION[64];
 
 	snprintf(FW_VERSION, sizeof(FW_VERSION), "%s_%s", BUILD_NO, EXTEND_NO);
+	snprintf(NEW_FW_VERSION, sizeof(NEW_FW_VERSION), "%s", nvram_get("new_fw_version"));
 
 	if (swmode == 1)
 	{
@@ -606,12 +607,12 @@ int output_basic_sh()
 		return -1;
 	}
 
-	fputheader(fp);						  //1. #sh script header
-	fputs("echo K3\n", fp);				  //2. MODEL
-	fprintf(fp, "echo %s\n", HW_VERSION); //3. HW version
-	fprintf(fp, "echo %s\n", FW_VERSION); //4. FW version
-	fprintf(fp, "echo %s\n", FW_VERSION); //5. FW version
-	fprintf(fp, "echo %s\n", MAC_ADDR);	  //6. MAC address
+	fputheader(fp);							  //1. #sh script header
+	fputs("echo K3\n", fp);					  //2. MODEL
+	fprintf(fp, "echo %s\n", HW_VERSION);	  //3. HW version
+	fprintf(fp, "echo %s\n", FW_VERSION);	  //4. FW version
+	fprintf(fp, "echo %s\n", NEW_FW_VERSION); //5. New FW version
+	fprintf(fp, "echo %s\n", MAC_ADDR);		  //6. MAC address
 	fclose(fp);
 	fp = NULL;
 	return 1;
@@ -899,12 +900,16 @@ int output_weather_sh()
 	FILE *fp = NULL;
 	int ret = 0;
 
+	int interval = nvram_get_int("weather_interval");
+	if (interval <= 0)
+		goto GETERR;
+
 	curl_global_init(CURL_GLOBAL_ALL);
 	CURL *curlhandle = curl_easy_init();
 
 	snprintf(url, sizeof(url), "%s?key=%s&location=%s&%s", url1, weather_key, strlen(weather_city) ? weather_city : "ip", url2);
 
-	timer = max(nvram_get_int("weather_interval"), REFRESH_INTERVAL_MIN);
+	timer = MAX(interval, REFRESH_INTERVAL_MIN);
 	time(&now_time);
 	if (last_time == 0 || now_time - last_time >= timer || !check_if_file_exist(localfile))
 	{

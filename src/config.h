@@ -10,14 +10,14 @@ typedef struct _config {
      * MODEL
      * HW version
      * FW version
-     * FW version
+     * New FW version
      * MAC address
      *
      * Example:
      * K3
      * A1
      * r3921
-	 * r3921
+	 * r3922
      * 02:00:00:00:00:00
      */
     char *basic_info_script;
