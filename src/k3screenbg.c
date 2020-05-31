@@ -913,7 +913,7 @@ int output_weather_sh()
 	time(&now_time);
 	if (last_time == 0 || now_time - last_time >= timer || !check_if_file_exist(localfile))
 	{
-		if (last_time)
+		if (check_if_file_exist(localfile))
 			unlink(localfile);
 		if (curl_download_file(curlhandle, url, localfile, 10, 3) != 1)
 		{
