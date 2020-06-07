@@ -9,7 +9,6 @@
 #include <sys/shm.h>
 #include <curl/curl.h>
 #include <json.h>
-//#include "../bwdpi_source/asus_include/bwdpi.h"
 #include "../networkmap/networkmap.h"
 #include "config.h"
 
@@ -382,68 +381,6 @@ static int get_client_detail_info(struct json_object *clients, key_t shmkey)
 	return 1;
 }
 
-/* 调用asus的traffic_hook太消耗内存，放弃
-int gen_traffic_file()
-{
-	FILE *fp = NULL;
-	int retval = 0;
-
-	if (fp = fopen("/tmp/traffic", "w+"))
-	{
-		get_traffic_hook("traffic", "", "realtime", "", &retval, fp);
-		fclose(fp);
-		fp = NULL;
-	}
-	else
-	{
-		retval = -1;
-	}
-	return retval;
-}
-
-int read_traffic_data()
-{
-	FILE *fp = NULL;
-	int i = 0, ch = 0;
-	struct json_object *json_obj = NULL, *obj = NULL;
-	char mac[18];
-	signed int upload = 0, dnload = 0;
-	char content[4096];
-	bzero(content, sizeof(content));
-
-	if (!(fp = fopen("/tmp/traffic", "r")))
-	{
-		return -1;
-	}
-
-	while ((ch = fgetc(fp)) != EOF)
-	{
-		if (ch == '\n' || ch == ' ' || ch == '\t' || ch == '\r')
-			continue;
-		content[i++] = ch;
-	}
-	fclose(fp);
-	fp = NULL;
-
-	json_obj = json_tokener_parse(&content);
-	if (is_error(json_obj))
-		return -1;
-
-	for (i = 0; i < json_object_array_length(json_obj); i++)
-	{
-		obj = json_object_array_get_idx(json_obj, i);
-		strlcpy(mac, json_object_get_string(json_object_array_get_idx(obj, 0)), sizeof(mac));
-		upload = json_object_get_int(json_object_array_get_idx(obj, 1));
-		dnload = json_object_get_int(json_object_array_get_idx(obj, 2));
-		AppendNode(mac, upload, dnload, 0, 0);
-		if (obj)
-			json_object_put(obj);
-	}
-	if (json_obj)
-		json_object_put(json_obj);
-	return 0;
-}*/
-
 int get_traffic_data(char mac[18], char ip[15])
 {
 	FILE *pipo_stream = NULL;
@@ -678,34 +615,49 @@ RET:
 int output_wifi_sh()
 {
 	int SMART_CONNECT = nvram_get_int("smart_connect_x");
+
 	char *SSID_2G = nvram_get("wl0_ssid");
 	char *PWD_2G = NULL;
 	char *AUTH_MODE_2G = nvram_get("wl0_auth_mode_x");
 	int ENABLED_2G = nvram_get_int("wl0_bss_enabled");
+
 	char *SSID_5G = nvram_get("wl1_ssid");
 	char *PWD_5G = NULL;
 	char *AUTH_MODE_5G = nvram_get("wl1_auth_mode_x");
 	int ENABLED_5G = nvram_get_int("wl1_bss_enabled");
+
 	int ENABLED_VISITOR = 0;
 	char SSID_GUEST[32], PWD_GUEST[64];
 	int NUM_GUEST = 0;
+	int HIDEPWD = nvram_get_int("screen_hidepwd");
+	int HIDEPWD_VISITOR = nvram_get_int("screen_hidepwd_visitor");
+
 	FILE *fp = NULL;
 
-	if (strcmp(AUTH_MODE_2G, "open"))
-	{
-		PWD_2G = nvram_get("wl0_wpa_psk");
-	}
-	else
+	if (!strcmp(AUTH_MODE_2G, "open"))
 	{
 		PWD_2G = "";
 	}
-	if (strcmp(AUTH_MODE_5G, "open"))
+	else if (HIDEPWD == 1)
 	{
-		PWD_5G = nvram_get("wl1_wpa_psk");
+		PWD_2G = "********";
 	}
 	else
 	{
+		PWD_2G = nvram_get("wl0_wpa_psk");
+	}
+
+	if (!strcmp(AUTH_MODE_5G, "open"))
+	{
 		PWD_5G = "";
+	}
+	else if (HIDEPWD == 1)
+	{
+		PWD_5G = "********";
+	}
+	else
+	{
+		PWD_5G = nvram_get("wl1_wpa_psk");
 	}
 
 	int guest_2g[3] = {0}, guest_5g[3] = {0};
@@ -718,43 +670,48 @@ int output_wifi_sh()
 		guest_2g[i] = nvram_get_int(tmp);
 		snprintf(tmp, sizeof(tmp), "wl1.%d_bss_enabled", i);
 		guest_5g[i] = nvram_get_int(tmp);
+		if (guest_2g[i] || guest_5g[i])
+			ENABLED_VISITOR = 1;
 	}
-
-	ENABLED_VISITOR = guest_2g[1] | guest_2g[2] | guest_2g[3] | guest_5g[1] | guest_5g[2] | guest_5g[3];
 
 	bzero(SSID_GUEST, sizeof(SSID_GUEST));
 	bzero(PWD_GUEST, sizeof(PWD_GUEST));
-	for (i = 1; i <= 3; i++)
+	if (ENABLED_VISITOR)
 	{
-		if (guest_2g[i])
+		for (i = 1; i <= 3; i++)
 		{
-			bzero(tmp, sizeof(tmp));
-			snprintf(tmp, sizeof(tmp), "wl0.%d_ssid", i);
-			strlcpy(SSID_GUEST, nvram_get(tmp), sizeof(SSID_GUEST));
-			bzero(tmp, sizeof(tmp));
-			snprintf(tmp, sizeof(tmp), "wl0.%d_auth_mode_x", i);
-			if (strcmp(tmp, "open"))
+			if (guest_2g[i])
 			{
+				bzero(tmp, sizeof(tmp));
+				snprintf(tmp, sizeof(tmp), "wl0.%d_ssid", i);
+				strlcpy(SSID_GUEST, nvram_get(tmp), sizeof(SSID_GUEST));
 				bzero(tmp, sizeof(tmp));
 				snprintf(tmp, sizeof(tmp), "wl0.%d_wpa_psk", i);
 				strlcpy(PWD_GUEST, nvram_get(tmp), sizeof(PWD_GUEST));
+				bzero(tmp, sizeof(tmp));
+				snprintf(tmp, sizeof(tmp), "wl0.%d_auth_mode_x", i);
+				break;
 			}
-			break;
-		}
-		if (guest_5g[i])
-		{
-			bzero(tmp, sizeof(tmp));
-			snprintf(tmp, sizeof(tmp), "wl1.%d_ssid", i);
-			strlcpy(SSID_GUEST, nvram_get(tmp), sizeof(SSID_GUEST));
-			bzero(tmp, sizeof(tmp));
-			snprintf(tmp, sizeof(tmp), "wl1.%d_auth_mode_x", i);
-			if (strcmp(tmp, "open"))
+			if (guest_5g[i])
 			{
+				bzero(tmp, sizeof(tmp));
+				snprintf(tmp, sizeof(tmp), "wl1.%d_ssid", i);
+				strlcpy(SSID_GUEST, nvram_get(tmp), sizeof(SSID_GUEST));
 				bzero(tmp, sizeof(tmp));
 				snprintf(tmp, sizeof(tmp), "wl1.%d_wpa_psk", i);
 				strlcpy(PWD_GUEST, nvram_get(tmp), sizeof(PWD_GUEST));
+				bzero(tmp, sizeof(tmp));
+				snprintf(tmp, sizeof(tmp), "wl1.%d_auth_mode_x", i);
+				break;
 			}
-			break;
+		}
+		if (!strcmp(tmp, "open"))
+		{
+			bzero(PWD_GUEST, sizeof(PWD_GUEST));
+		}
+		else if (HIDEPWD_VISITOR == 1)
+		{
+			strlcpy(PWD_GUEST, "********", sizeof(PWD_GUEST));
 		}
 	}
 
@@ -770,16 +727,16 @@ int output_wifi_sh()
 
 	fputheader(fp);							   //1. #sh script header
 	fprintf(fp, "echo %d\n", SMART_CONNECT);   //2. Band steering?
-	fprintf(fp, "echo %s\n", SSID_2G);		   //3. 2.4GHz SSID
-	fprintf(fp, "echo %s\n", PWD_2G);		   //4. 2.4GHz password
+	fprintf(fp, "echo '%s'\n", SSID_2G);		   //3. 2.4GHz SSID
+	fprintf(fp, "echo '%s'\n", PWD_2G);		   //4. 2.4GHz password
 	fprintf(fp, "echo %d\n", ENABLED_2G);	   //5. 2.4GHz enabled
 	fprintf(fp, "echo %d\n", NUM_2G);		   //6. Number of clients connected to 2.4GHz
-	fprintf(fp, "echo %s\n", SSID_5G);		   //7. 5GHz SSID
-	fprintf(fp, "echo %s\n", PWD_5G);		   //8. 5GHz password
+	fprintf(fp, "echo '%s'\n", SSID_5G);		   //7. 5GHz SSID
+	fprintf(fp, "echo '%s'\n", PWD_5G);		   //8. 5GHz password
 	fprintf(fp, "echo %d\n", ENABLED_5G);	   //9. 5GHz enabled
 	fprintf(fp, "echo %d\n", NUM_5G);		   //10. Number of clients connected to 5GHz
-	fprintf(fp, "echo %s\n", SSID_GUEST);	   //11. Visitor network SSID
-	fprintf(fp, "echo %s\n", PWD_GUEST);	   //12. Visitor network password
+	fprintf(fp, "echo '%s'\n", SSID_GUEST);	   //11. Visitor network SSID
+	fprintf(fp, "echo '%s'\n", PWD_GUEST);	   //12. Visitor network password
 	fprintf(fp, "echo %d\n", ENABLED_VISITOR); //13. Visitor network enabled
 	fprintf(fp, "echo %d\n", NUM_GUEST);	   //14. Number of clients connected to visitor network
 	fclose(fp);
@@ -800,10 +757,6 @@ int output_host_sh()
 	int brand = 0;
 	FILE *fp = NULL;
 
-	/*太消耗内存，放弃
-	gen_traffic_file();
-	read_traffic_data();*/
-
 	if ((nvram_match("refresh_networkmap", "1") || nvram_match("rescan_networkmap", "1")) && (check_if_file_exist(NMP_CACHE_FILE)))
 	{
 		clients = json_object_from_file(NMP_CACHE_FILE);
@@ -813,6 +766,8 @@ int output_host_sh()
 		clients = json_object_new_object();
 		get_client_detail_info(clients, SHMKEY_LAN);
 	}
+	if (clients == NULL)
+		return -2;
 
 	if (fp = fopen("/tmp/k3screenctrl/host.sh", "w+"))
 	{
@@ -863,16 +818,13 @@ int output_host_sh()
 
 		brand = find_logo(&mac);
 
-		fprintf(fp, "echo %s\n", strlen(nickname) ? nickname : name); //3. Host name
-		fprintf(fp, "echo %d\n", spd_dnload);						  //4. Host download speed
-		fprintf(fp, "echo %d\n", spd_upload);						  //5. Host upload speed
-		fprintf(fp, "echo %d\n", brand);							  //6. Host brand
+		fprintf(fp, "echo %s\n", strlen(nickname) ? nickname : name);	//3. Host name
+		fprintf(fp, "echo %d\n", spd_dnload);							//4. Host download speed
+		fprintf(fp, "echo %d\n", spd_upload);							//5. Host upload speed
+		fprintf(fp, "echo %d\n", brand);								//6. Host brand
 	}
 	fclose(fp);
 	fp = NULL;
-
-	if (clients)
-		json_object_put(clients);
 	return 1;
 }
 
