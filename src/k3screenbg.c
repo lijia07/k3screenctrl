@@ -11,13 +11,15 @@
 #include <json.h>
 #include "../networkmap/networkmap.h"
 #include "config.h"
+#include <ctype.h>
+#include <unistd.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define NMP_CACHE_FILE "/tmp/nmp_cache.js"
 #define REFRESH_INTERVAL_MIN 60 * 60 * 1
 
-static signed int last_upload_wan = 0, last_dnload_wan = 0;
-static signed int NUM_2G = 0, NUM_5G = 0;
+static unsigned long long last_upload_wan = 0, last_dnload_wan = 0;
+static int NUM_2G = 0, NUM_5G = 0;
 static int swmode = 0;
 static time_t last_time = 0;
 
@@ -25,10 +27,10 @@ typedef struct Node
 {
 	char mac[18];
 	char ip[15];
-	signed int up_data;
-	signed int dn_data;
-	signed int last_up_data;
-	signed int last_dn_data;
+	unsigned long up_data;
+	unsigned long dn_data;
+	unsigned long last_up_data;
+	unsigned long last_dn_data;
 	struct Node *pNext; //定义一个结构体指针，指向下一次个与当前节点数据类型相同的
 } NODE;
 
@@ -67,6 +69,10 @@ char XiaoMi[] = "A44519,D09C7A,50EC50,70BBE9,04CF8C,40313C,20A60C,8035C1,2047DA,
 char ZTE[] = "086083,E01954,50AF4D,C8EAF8,709F2D,84139F,24D3F2,781D4A,B0ACD2,9C63ED,D4C1C8,88D274,049573,78C1A7,8CE117,688AF0,D058A8,D071C4,24C44A,FC2D5E,083FBC,002675,0019C6,84742A,9CD24B,C87B5B,D05BA8,D437D7,CC7B35,5422F8,901D27,8CE081,48282F,001AE7,6CD2BA,90FD73,F80DF0,9CE91C,347839,3CF652,80B07B,C85A9F,44FB5A,4413D0,C09FE1,DC7137,FC94CE,90869B,8C14B4,4CABFC,A44027,38E2DD,885DFB,288CB8,287B09,30D386,681AB2,004A77,74B57E,18686A,C864C7,749781,744AA4,00300A,601888,002512,344B50,FCC897,346987,98F428,143EBF,A8A668,208986,182012,9CA9E4,E47723,146080,2C26C5,4C09B4,001AEE,000947,041DC7,B00AD5,98006A,BC1695,DCDFD6,C0FD84,1C2704,5078B3,841C70,20E882,44FFBA,7C3953,38E1AA,B4DEDF,B0C19E,0C3747,18132D,4859A4,EC8A4C,F4E4AD,28FF3E,689FF0,64136C,90C7D8,10D0AB,384608,4CAC0A,B4B362,B075D5,D0154A,0026ED,002293,54BE53,94A7B7,1844E6,6CA75F,8C7967,D855A3,38D82F,E08E3C,8432EA,2C957F,F8DFA8,34E0CF,8CDC02,B0B194,9C2F4E,D8A8C8,E8A1F8,304240,DCF8B9,94BF80,AC00D0,24586E,247E51,E8B541,E4BD4B,8C68C8,EC8263,309935,0C72D9,9C6F52,601466,F8A34F,E07C13,F41F88,981333,A091C8,D476EA,08181A,001E73,0015EB,F4B8A7,300C23,44F436,78312B,344DEA,4C16F1,EC1D7F,84850A,A47E39,0C1262,986CF5,4CCBF5,78E8B6,F084C9,E0C3F3,F46DE2,7866AE,002447,001F07,00903F,5C3A3D,4C494F,C4741E,94E3EE,E47E9A,F4B5AA,E8ACAD,34DAB7,ECF0FE,E4CA12,D49E05,585FF6,386E88,E0383F,D47226,B41C30,847460,EC237B,48A74E,D0608C,702E22,540955,C4A366,6073BC,B805AB,789682,343759,74A78E,98F537,AC6462,90D8F3,3CDA2A,D87495,34DE34,30F31D,A0EC80,CC1AFA,6C8B2F,B49842,DC028E,001352,E447B3,D4B709,EC6CB5,C0B101";
 char *logo[] = {deflogo, OnePlus, Qihoo360, Asus, Coolpad, Dell, Haier, Hasee, Honor, HP, HTC, Huawei, Apple, Lenovo, LeEco, LG, Meitu, Meizu, OPPO, Phicomm, Samsung, Smartisan, Sony, TCL, ThinkPad, TongfangPC, VIVO, Microsoft, XiaoMi, ZTE};
 
+#ifdef RTCONFIG_BCM5301X_TRAFFIC_MONITOR
+uint32_t traffic_wanlan(char *ifname, uint32_t *rx, uint32_t *tx);
+#endif
+
 void get_json_value(struct json_object *json, const char *key, char value[])
 {
 	if (json_object_is_type(json, json_type_object))
@@ -75,8 +81,7 @@ void get_json_value(struct json_object *json, const char *key, char value[])
 		{
 			if (strcmp(json_key, key) == 0)
 			{
-				char *s = json_object_get_string(json_value);
-				strcpy(value, s);
+				strcpy(value, json_object_get_string(json_value));
 				return;
 			}
 			get_json_value(json_value, key, value);
@@ -279,6 +284,11 @@ static int get_client_detail_info(struct json_object *clients, key_t shmkey)
 	customList = json_object_new_object();
 	customList_status = get_custom_clientlist_info(customList);
 
+#ifdef RTCONFIG_DISABLE_NETWORKMAP
+	if (nvram_match("networkmap_enable", "0"))
+		return 0;
+#endif
+
 	lock = file_lock("networkmap");
 	shm_client_info_id = shmget((key_t)shmkey, sizeof(CLIENT_DETAIL_INFO_TABLE), 0666 | IPC_CREAT);
 	if (shm_client_info_id == -1)
@@ -295,15 +305,6 @@ static int get_client_detail_info(struct json_object *clients, key_t shmkey)
 		file_unlock(lock);
 		return 0;
 	}
-
-#ifdef RTCONFIG_DISABLE_NETWORKMAP
-	if (nvram_match("networkmap_enable", "0"))
-	{
-		nvram_set("networkmap_fullscan", "0");
-		file_unlock(lock);
-		return 0;
-	}
-#endif
 
 	NUM_2G = NUM_5G = 0;
 	p_client_info_tab = (P_CLIENT_DETAIL_INFO_TABLE)shared_client_info;
@@ -361,8 +362,6 @@ static int get_client_detail_info(struct json_object *clients, key_t shmkey)
 					if (json_object_object_get_ex(custom_attr_get, "name", &custom_attr_get_name))
 					{
 						json_object_object_add(client, "nickName", json_object_new_string(json_object_get_string(custom_attr_get_name)));
-						if (custom_attr_get_name)
-							json_object_put(custom_attr_get_name);
 					}
 				}
 			}
@@ -424,81 +423,155 @@ int get_traffic_data(char mac[18], char ip[15])
 	{
 		fread(buffer, 1, sizeof(buffer), pipo_stream);
 		pclose(pipo_stream);
-		up_data = atoi(&buffer);
+		up_data = atoi((char *)&buffer);
 	}
 	snprintf(cmd, sizeof(cmd), "iptables -nvx -L FORWARD | grep DWSP | grep %s -w  | awk '{print $2}'", ip);
 	if (pipo_stream = popen(cmd, "r"))
 	{
 		fread(buffer, 1, sizeof(buffer), pipo_stream);
 		pclose(pipo_stream);
-		dn_data = atoi(&buffer);
+		dn_data = atoi((char *)&buffer);
 	}
 
 	AppendNode(mac, ip, up_data, dn_data, 0, 0);
 	return 1;
 }
 
-int get_traffic_wan_data(int *dn_data, int *up_data)
+// traffic monitor
+int get_traffic_wan_data(unsigned long long *rx_data, unsigned long long *tx_data)
 {
-	FILE *pipo_stream = NULL;
-	char buffer[4096];
-	char *match = NULL;
+	FILE *fp;
+	char buf[256];
+	unsigned long long rx = 0, tx = 0, curr_rx = 0, curr_tx = 0;
+	unsigned long long rx2 = 0, tx2 = 0;
+	unsigned long long wired_all_rx = 0, wired_all_tx = 0;
+	ino_t inode;
+	struct ifino_s *ifino;
+	static struct ifname_ino_tbl ifstat_tbl = {0};
+	char *p;
+	char *ifname;
+	char ifname_desc[12], ifname_desc2[12];
+	int wired_valid = 0;
+	char *nv_lan_ifname;
+	char *nv_lan_ifnames;
 
-	if (swmode != 1) //not router mode
-		goto GETERR;
-	if ((pipo_stream = popen("ifconfig", "r")) == NULL)
-		goto GETERR;
+	nv_lan_ifname = nvram_safe_get("lan_ifname");
+	nv_lan_ifnames = nvram_safe_get("lan_ifnames");
 
-	fread(buffer, 1, sizeof(buffer), pipo_stream);
-	pclose(pipo_stream);
+	fp = fopen("/proc/net/dev", "r");
 
-	if (strstr(buffer, "ppp0"))
-		pipo_stream = popen("ifconfig ppp0", "r");
-	else if (strstr(buffer, "eth0"))
-		pipo_stream = popen("ifconfig eth0", "r");
-	else if (strstr(buffer, "vlan2"))
-		pipo_stream = popen("ifconfig vlan2", "r");
-	else
-		goto GETERR;
+	if (fp)
+	{
+		fgets(buf, sizeof(buf), fp);
+		fgets(buf, sizeof(buf), fp);
+		while (fgets(buf, sizeof(buf), fp))
+		{
+			if ((p = strchr(buf, ':')) == NULL)
+				continue;
+			*p = 0;
+			if ((ifname = strrchr(buf, ' ')) == NULL)
+				ifname = buf;
+			else
+				++ifname;
+			if (sscanf(p + 1, "%llu%*u%*u%*u%*u%*u%*u%*u%llu", &rx, &tx) != 2)
+				continue;
+#ifdef RTCONFIG_BCM5301X_TRAFFIC_MONITOR
+			/* WAN1, WAN2, LAN */
+			if (strncmp(ifname, "vlan", 4) == 0)
+			{
+				traffic_wanlan(ifname, (uint32_t *)&rx, (uint32_t *)&tx);
+			}
+			if (nvram_match("wans_dualwan", "wan none"))
+			{
+				if (strcmp(ifname, "eth0") == 0)
+				{
+					traffic_wanlan(WAN0DEV, (uint32_t *)&rx, (uint32_t *)&tx);
+				}
+			}
+#endif /* RTCONFIG_BCM5301X_TRAFFIC_MONITOR */
+			if (!netdev_calc(ifname, ifname_desc, (unsigned long *)&rx, (unsigned long *)&tx,
+							 ifname_desc2, (unsigned long *)&rx2, (unsigned long *)&tx2,
+							 nv_lan_ifname, nv_lan_ifnames))
+				continue;
 
-	if (fread(buffer, 1, sizeof(buffer), pipo_stream) == 0)
-		goto GETERR;
-	if ((pclose(pipo_stream)) != 0)
-		goto GETERR;
+			/* If inode of a interface changed, it means the interface was closed and reopened.
+				 * In this case, we should calculate difference of old TX/RX bytes and new TX/RX
+				 * bytes and shift from new TX/RX bytes to old TX/RX bytes.
+				 */
+			inode = get_iface_inode(ifname);
+			curr_rx = rx;
+			curr_tx = tx;
+			if ((ifino = ifname_ino_ptr(&ifstat_tbl, ifname)) != NULL)
+			{
+				if (ifino->inode && ifino->inode != inode)
+				{
+					ifino->inode = inode;
+					ifino->shift_rx = curr_rx - ifino->last_rx + ifino->shift_rx;
+					ifino->shift_tx = curr_tx - ifino->last_tx + ifino->shift_tx;
+				}
+			}
+			else
+			{
+				if ((ifstat_tbl.nr_items + 1) <= ARRAY_SIZE(ifstat_tbl.items))
+				{
+					ifino = &ifstat_tbl.items[ifstat_tbl.nr_items];
+					strlcpy(ifino->ifname, ifname, sizeof(ifino->ifname));
+					ifino->inode = inode;
+					ifino->last_rx = curr_rx;
+					ifino->last_tx = curr_tx;
+					ifino->shift_rx = ifino->shift_tx = 0;
+					ifstat_tbl.nr_items++;
+				}
+			}
 
-	match = strstr(buffer, "RX bytes:");
-	if (match == NULL)
-		goto GETERR;
-	sscanf(match, "RX bytes:%d", dn_data);
-	match = strstr(buffer, "TX bytes:");
-	if (match == NULL)
-		goto GETERR;
-	sscanf(match, "TX bytes:%d", up_data);
-	return 1;
+			if (ifino != NULL)
+			{
+				rx = curr_rx - ifino->shift_rx;
+				tx = curr_tx - ifino->shift_tx;
+				ifino->last_rx = curr_rx;
+				ifino->last_tx = curr_tx;
+			}
 
-GETERR:
-	up_data = dn_data = 0;
-	return -1;
+		loopagain:
+			if (!strncmp(ifname_desc, "WIRED", 5))
+			{
+				wired_valid = 1;
+				wired_all_rx += rx;
+				wired_all_tx += tx;
+			}
+			if (strlen(ifname_desc2))
+			{
+				strcpy(ifname_desc, ifname_desc2);
+				rx = rx2;
+				tx = tx2;
+				strcpy(ifname_desc2, "");
+				goto loopagain;
+			}
+		}
+		if (wired_valid)
+		{
+			*rx_data = wired_all_rx;
+			*tx_data = wired_all_tx;
+		}
+		fclose(fp);
+	}
+	return 0;
 }
 
-int find_logo(char *mac)
+int find_logo(char mac[])
 {
-	char curmac[7];
-	int i, j, k = 0;
+	char curmac[7] = {0};
+	int i, j = 0, k = 0;
 	int length = sizeof(logo) / sizeof(logo[0]);
-	while ((*mac) && (k < 6))
+	if (strlen(mac) <= 0)
+		return 0;
+	while (k < 6)
 	{
-		if (*mac == ':')
+		if (mac[j] != ':')
 		{
-			mac++;
-			continue;
+			curmac[k++] = toupper(mac[j]);
 		}
-		else
-		{
-			curmac[k] = toupper(*mac);
-			k++;
-			mac++;
-		}
+		j++;
 	}
 	for (i = 0; i < length; i++)
 	{
@@ -561,17 +634,13 @@ int output_wan_sh()
 	int FLAG = nvram_get_int("ure_disable");
 	int CONNECTED = 0, UPLOAD_BPS = 0, DOWNLOAD_BPS = 0, MODE = 0;
 	FILE *fp = NULL;
-	int now_upload_wan = 0, now_dnload_wan = 0;
+	unsigned long long now_upload_wan = 0, now_dnload_wan = 0;
 
 	bzero(IPV4_ADDR, sizeof(IPV4_ADDR));
 	MODE = (swmode == 1 ? 0 : 1);
 	if (nvram_get_int("link_internet") == 2)
 	{
 		CONNECTED = 1;
-	}
-	else
-	{
-		goto RET;
 	}
 
 	if (strcmp(nvram_get("wan0_ipaddr"), "0.0.0.0"))
@@ -727,11 +796,11 @@ int output_wifi_sh()
 
 	fputheader(fp);							   //1. #sh script header
 	fprintf(fp, "echo %d\n", SMART_CONNECT);   //2. Band steering?
-	fprintf(fp, "echo '%s'\n", SSID_2G);		   //3. 2.4GHz SSID
+	fprintf(fp, "echo '%s'\n", SSID_2G);	   //3. 2.4GHz SSID
 	fprintf(fp, "echo '%s'\n", PWD_2G);		   //4. 2.4GHz password
 	fprintf(fp, "echo %d\n", ENABLED_2G);	   //5. 2.4GHz enabled
 	fprintf(fp, "echo %d\n", NUM_2G);		   //6. Number of clients connected to 2.4GHz
-	fprintf(fp, "echo '%s'\n", SSID_5G);		   //7. 5GHz SSID
+	fprintf(fp, "echo '%s'\n", SSID_5G);	   //7. 5GHz SSID
 	fprintf(fp, "echo '%s'\n", PWD_5G);		   //8. 5GHz password
 	fprintf(fp, "echo %d\n", ENABLED_5G);	   //9. 5GHz enabled
 	fprintf(fp, "echo %d\n", NUM_5G);		   //10. Number of clients connected to 5GHz
@@ -747,9 +816,9 @@ int output_wifi_sh()
 int output_host_sh()
 {
 	struct json_object *clients = NULL;
-	struct json_object *obj_tmp = NULL;
 
 	char name[32], nickname[32], ip[15], mac[18];
+	char hostname[32];
 	NODE *pNode = NULL;
 	signed int now_upload = 0, now_dnload = 0;
 	signed int last_upload = 0, last_dnload = 0;
@@ -779,6 +848,7 @@ int output_host_sh()
 		return -1;
 	}
 
+	struct json_object *obj_name = NULL, *obj_nickname = NULL, *obj_ip = NULL;
 	int hosts_num = json_object_object_length(clients);
 	fputheader(fp);						 //1. #sh script header
 	fprintf(fp, "echo %d\n", hosts_num); //2. Number of hosts
@@ -786,23 +856,20 @@ int output_host_sh()
 	json_object_object_foreach(clients, json_key, json_client)
 	{
 		strlcpy(mac, json_key, sizeof(mac));
-		if (json_object_object_get_ex(json_client, "name", &obj_tmp))
+		bzero(name, sizeof(name));
+		bzero(nickname, sizeof(nickname));
+		bzero(ip, sizeof(ip));
+		if (json_object_object_get_ex(json_client, "name", &obj_name))
 		{
-			strlcpy(name, json_object_get_string(obj_tmp), sizeof(name));
-			if (obj_tmp)
-				json_object_put(obj_tmp);
+			strlcpy(name, json_object_get_string(obj_name), sizeof(name));
 		}
-		if (json_object_object_get_ex(json_client, "nickName", &obj_tmp))
+		if (json_object_object_get_ex(json_client, "nickName", &obj_nickname))
 		{
-			strlcpy(nickname, json_object_get_string(obj_tmp), sizeof(nickname));
-			if (obj_tmp)
-				json_object_put(obj_tmp);
+			strlcpy(nickname, json_object_get_string(obj_nickname), sizeof(name));
 		}
-		if (json_object_object_get_ex(json_client, "ip", &obj_tmp))
+		if (json_object_object_get_ex(json_client, "ip", &obj_ip))
 		{
-			strlcpy(ip, json_object_get_string(obj_tmp), sizeof(ip));
-			if (obj_tmp)
-				json_object_put(obj_tmp);
+			strlcpy(ip, json_object_get_string(obj_ip), sizeof(name));
 		}
 		get_traffic_data(mac, ip);
 		if (pNode = FindNode(mac))
@@ -816,21 +883,37 @@ int output_host_sh()
 		spd_upload = (now_upload - last_upload) / DEFAULT_UPDATE_INTERVAL;
 		spd_dnload = (now_dnload - last_dnload) / DEFAULT_UPDATE_INTERVAL;
 
-		brand = find_logo(&mac);
+		brand = find_logo(mac);
 
-		fprintf(fp, "echo %s\n", strlen(nickname) ? nickname : name);	//3. Host name
-		fprintf(fp, "echo %d\n", spd_dnload);							//4. Host download speed
-		fprintf(fp, "echo %d\n", spd_upload);							//5. Host upload speed
-		fprintf(fp, "echo %d\n", brand);								//6. Host brand
+		if (strlen(nickname) > 0)
+		{
+			strlcpy(hostname, nickname, sizeof(hostname));
+		}
+		else if (strcmp(name, "*") == 0 || strcmp(name, "?") == 0 || strlen(name) == 0)
+		{
+			strlcpy(hostname, mac, sizeof(hostname));
+		}
+		else
+		{
+			strlcpy(hostname, name, sizeof(hostname));
+		}
+
+		fprintf(fp, "echo %s\n", hostname);		//3. Host name
+		fprintf(fp, "echo %d\n", spd_dnload);	//4. Host download speed
+		fprintf(fp, "echo %d\n", spd_upload);	//5. Host upload speed
+		fprintf(fp, "echo %d\n", brand);		//6. Host brand
 	}
 	fclose(fp);
 	fp = NULL;
+
+	if (clients)
+		json_object_put(clients);
 	return 1;
 }
 
 int output_weather_sh()
 {
-	time_t tmpcal_ptr = NULL;
+	time_t tmpcal_ptr = 0;
 	struct tm *tmp_ptr = NULL;
 	char ch_date[11], ch_time[6];
 	int week = 0;
@@ -919,9 +1002,15 @@ void sig_handler(int signal_num)
 	output_weather_sh();
 }
 
+void clean(int signal_num)
+{
+	FreeNodeList();
+}
+
 int main(int argc, char *argv[])
 {
 	signal(SIGALRM, sig_handler);
+	signal(SIGTERM, clean);
 	while (1)
 	{
 		alarm(DEFAULT_UPDATE_INTERVAL);
